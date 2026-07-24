@@ -78,6 +78,16 @@ def convert_sentence(sentence: TokenList) -> list[WPToken]:
                 return "PROPN"
         return token["upos"]
 
+    # Some annotation pipelines (e.g. SyntaxDot) mark separable verb
+    # particles via the UD deprel "compound:prt" on the particle token
+    # itself (head -> verb), rather than via a "compound:prt" key in the
+    # verb token's MISC field. Support both so prt_pos still resolves.
+    particle_positions = {
+        token["head"]: token["id"]
+        for token in sentence
+        if token["deprel"] == "compound:prt"
+    }
+
     return [
         normalize_caps(
             WPToken(
@@ -91,7 +101,8 @@ def convert_sentence(sentence: TokenList) -> list[WPToken]:
                     token["misc"].get("SpaceAfter") == "No" if token["misc"] else False
                 ),
                 morph=token.get("feats", None),
-                prt_pos=(token["misc"] or {}).get("compound:prt", None),
+                prt_pos=(token["misc"] or {}).get("compound:prt", None)
+                or particle_positions.get(token["id"]),
             )
         )
         for token in sentence
